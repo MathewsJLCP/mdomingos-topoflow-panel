@@ -1,4 +1,5 @@
 import { defaultCanvas, defaultTopology } from './defaults';
+import { MAX_DATA_URI_LENGTH } from './imageSrc';
 import { parseTopoFlowOptions } from './parse';
 import { sampleTopology } from './sampleTopology';
 
@@ -451,6 +452,29 @@ describe('parseTopoFlowOptions — imagem', () => {
       text: 'IN: ${traffic in}',
       background: { mode: 'state', color: 'blue', opacity: 0.5 },
     });
+  });
+
+  /**
+   * O teto do upload vale no schema, mas como correcao do campo: um `refine`
+   * reprovaria a secao inteira, e o painel cairia na topologia padrao.
+   */
+  it('upload acima do limite perde só a figura; o resto do mapa fica', () => {
+    const grande = { ...image, id: 'image-2', src: `data:image/png;base64,${'A'.repeat(MAX_DATA_URI_LENGTH)}` };
+    const { options, issues } = parseTopoFlowOptions({
+      topology: { nodes: sampleTopology.nodes, edges: [], images: [image, grande] },
+    });
+
+    expect(issues).toEqual([]);
+    expect(options.topology.nodes).toHaveLength(sampleTopology.nodes.length);
+    expect(options.topology.images.map((i) => i.src)).toEqual([image.src, '']);
+  });
+
+  /** A URL recusada continua salva, para quem configurou ver e corrigir. */
+  it('preserva a URL http salva, que o canvas não carrega', () => {
+    const { options, issues } = carrega({ ...image, src: 'http://10.0.0.5/logo.png' });
+
+    expect(issues).toEqual([]);
+    expect(options.topology.images[0].src).toBe('http://10.0.0.5/logo.png');
   });
 
   it('rejeita modo de fundo desconhecido em vez de aceitar valor livre', () => {

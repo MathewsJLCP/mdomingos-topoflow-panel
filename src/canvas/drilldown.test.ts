@@ -1,9 +1,10 @@
-import { locationService } from '@grafana/runtime';
+import { TemplateSrv, locationService, setTemplateSrv } from '@grafana/runtime';
 
 import {
   drilldownHref,
   hasDrilldown,
   hasScheme,
+  isBlockedDrilldown,
   isInternal,
   navigateInApp,
   shouldNavigateInApp,
@@ -54,6 +55,91 @@ describe('drilldownHref', () => {
    */
   it('sobrevive à ausência do serviço de variáveis', () => {
     expect(drilldownHref({ url: '/d/uid/host?var-host=$host' })).toBe('/d/uid/host?var-host=$host');
+  });
+});
+
+/**
+ * O `href` aceita esquemas que executam codigo. Um link de drill-down e
+ * configuracao de quem edita o dashboard, mas quem clica e qualquer um que o
+ * abre — e no telao o clique e de um operador que nao escreveu aquilo.
+ */
+describe('drilldownHref: sanitização', () => {
+  it.each([
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(1)',
+    ' javascript:alert(1)',
+    // O browser ignora tab e quebra de linha dentro da URL: estes executam.
+    'java\tscript:alert(1)',
+    'java\nscript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+  ])('recusa %j: o elemento não vira link', (url) => {
+    expect(drilldownHref({ url })).toBeUndefined();
+    expect(isBlockedDrilldown({ url })).toBe(true);
+  });
+
+  /**
+   * Entidade HTML nao e decodificada num `href` posto pelo React, entao isto
+   * nunca executaria. O que importa e que o resultado nao tenha `javascript:`
+   * como esquema — e nao tem: o `https://` completado na frente manda.
+   */
+  it('entidade HTML nunca vira esquema javascript:', () => {
+    expect(drilldownHref({ url: '&#106;avascript:alert(1)' })).toMatch(/^https:\/\//);
+  });
+
+  it.each([
+    '/d/uid/detalhe?var-host=srv01',
+    'https://zabbix.corp/tr_events.php?triggerid=1',
+    'http://10.0.0.5/zabbix',
+    'mailto:noc@exemplo.com',
+    '/d/uid/detalhe?var-host=a%20b',
+  ])('mantém %j como está', (url) => {
+    expect(drilldownHref({ url })).toBe(url);
+    expect(isBlockedDrilldown({ url })).toBe(false);
+  });
+
+  /**
+   * O `sanitizeUrl` le como esquema tudo ate o ultimo `:`. Sem o `https://`
+   * completado antes, um host que comeca com `data` e tem porta seria recusado.
+   */
+  it('host que começa com "data" ou "javascript" continua abrindo', () => {
+    expect(drilldownHref({ url: 'datadog.corp:8443/painel' })).toBe('https://datadog.corp:8443/painel');
+    expect(drilldownHref({ url: 'javascript.info/intro' })).toBe('https://javascript.info/intro');
+  });
+
+  it('sem link não é "bloqueado": é só sem link', () => {
+    expect(isBlockedDrilldown(undefined)).toBe(false);
+    expect(isBlockedDrilldown({ url: '' })).toBe(false);
+  });
+
+  /**
+   * O caso que a revisao do catalogo apontou: o texto salvo e inofensivo
+   * (`$link`), e o perigo so aparece quando a variavel resolve.
+   */
+  describe('com variável do dashboard', () => {
+    const variaveis: Record<string, string> = {
+      $link: 'javascript:alert(document.cookie)',
+      $host: 'srv01',
+    };
+
+    beforeEach(() => {
+      setTemplateSrv({
+        replace: (texto: string) => texto.replace(/\$\w+/g, (nome) => variaveis[nome] ?? nome),
+      } as unknown as TemplateSrv);
+    });
+
+    afterEach(() => {
+      // Os outros testes dependem de nao haver servico de variaveis.
+      setTemplateSrv(undefined as unknown as TemplateSrv);
+    });
+
+    it('recusa a variável que resolve para javascript:', () => {
+      expect(drilldownHref({ url: '$link' })).toBeUndefined();
+    });
+
+    it('resolve a variável inofensiva normalmente', () => {
+      expect(drilldownHref({ url: '/d/uid/host?var-host=$host' })).toBe('/d/uid/host?var-host=srv01');
+    });
   });
 });
 

@@ -6,6 +6,7 @@ import { Handle, HandleType, NodeProps, NodeResizeControl, Position, ResizeContr
 
 import { resolveTemplate } from '../../data/dimensions';
 import { resolveElementColor, stateMetrics } from '../../data/elementColor';
+import { ImageSrcKind, cssImageUrl, imageSrcKind } from '../../model/imageSrc';
 import { IMAGE_DEFAULT } from '../../model/sizes';
 import { ImageBackground } from '../../model/types';
 import { TopoIcon, isKnownIcon, resolveIcon } from '../../icons';
@@ -61,6 +62,8 @@ export function ImageNode({ data, selected, dragging }: NodeProps<ImageFlowNode>
 
   const caption = element.text ? resolveTemplate(element.text, frames) : '';
   const icon = isKnownIcon(element.src) ? resolveIcon(element.src) : undefined;
+  // Upload e URL so carregam o que a regra aceita; ver `model/imageSrc.ts`.
+  const file = icon ? undefined : imageSrcKind(element.src);
   const tint = iconColor(accent, element.iconTone, theme);
   const mask = useIconMask(icon);
 
@@ -129,14 +132,14 @@ export function ImageNode({ data, selected, dragging }: NodeProps<ImageFlowNode>
             <span className={styles.lib} style={{ width: `${fill * 100}%`, height: `${fill * 100}%` }}>
               <TopoIcon icon={icon} color={tint} size="100%" />
             </span>
-          ) : element.src ? (
+          ) : file === 'https' || file === 'upload' ? (
             <span
               role="img"
               className={styles.file}
-              style={{ backgroundImage: `url("${element.src}")`, backgroundSize: FIT[element.fit] }}
+              style={{ backgroundImage: cssImageUrl(element.src), backgroundSize: FIT[element.fit] }}
             />
           ) : (
-            <span className={styles.placeholder}>Sem imagem</span>
+            <span className={styles.placeholder}>{PLACEHOLDER[file ?? 'empty']}</span>
           )}
 
           <span
@@ -178,6 +181,18 @@ export function ImageNode({ data, selected, dragging }: NodeProps<ImageFlowNode>
 }
 
 const FIT: Record<string, string> = { contain: 'contain', cover: 'cover', fill: '100% 100%' };
+
+/**
+ * O que aparece no lugar da figura. Uma URL recusada nao some em silencio: quem
+ * olha o mapa ve que ha algo a corrigir, e o editor diz o que e.
+ */
+const PLACEHOLDER: Record<ImageSrcKind, string> = {
+  empty: 'Sem imagem',
+  https: 'Sem imagem',
+  upload: 'Sem imagem',
+  'too-large': 'Imagem acima do limite',
+  blocked: 'URL não permitida',
+};
 
 /**
  * Borda e fundo da caixa.

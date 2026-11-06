@@ -7,7 +7,7 @@
     "keywords": ["panel", "topology", "network", "map", "zabbix", "noc", "diagram"],
     "description": "Mapas de topologia editáveis: desenhe a rede no dashboard e vincule cada elemento a uma métrica ou a uma trigger do Zabbix.",
     "author": {
-      "name": "Matheus Domingos - Jlcp",
+      "name": "Matheus Domingos",
       "url": "https://www.linkedin.com/in/mathews-domingos/"
     },
     "logos": {

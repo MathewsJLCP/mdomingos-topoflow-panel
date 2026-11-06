@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.2 — 2026-11-06
+
+Ajustes pedidos pela revisão manual do catálogo do Grafana.
+
+- **Segurança do drill-down:** o link do elemento passa pelo `textUtil.sanitizeUrl`
+  do Grafana depois de resolver as variáveis do dashboard. Endereços
+  `javascript:`, `data:` e `vbscript:`, inclusive disfarçados com maiúsculas,
+  tab ou quebra de linha, não viram mais link: o elemento fica sem clique, e o
+  editor avisa "Endereço bloqueado por segurança". Caminhos do Grafana,
+  `https://`, `http://` e `mailto:` continuam iguais.
+- **Imagem só de `https://` ou upload.** A figura da Imagem carrega apenas URL
+  `https://` e upload (`data:image/...`). Os ícones da biblioteca não mudam. Uma
+  URL `http://` ou um caminho relativo já salvos continuam no dashboard, mas o
+  canvas mostra "URL não permitida" no lugar da figura, e o editor explica a
+  saída: baixar o arquivo e enviá-lo. O upload também passou a recusar arquivo
+  que não é imagem.
+- **Limite do upload também no schema.** Um upload acima de 256 KB que chegue
+  por JSON ou importação perde só a figura. O resto do mapa carrega normalmente.
+- Autor e copyright: "Matheus Domingos".
+
 ## 1.4.1 — 2026-10-10
 
 Ajustes pedidos pela validação automática do catálogo do Grafana. **Nada muda

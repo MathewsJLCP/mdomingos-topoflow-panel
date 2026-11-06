@@ -69,6 +69,42 @@ describe('ImageForm — arquivo e texto', () => {
     expect(result()?.src).toBe('https://x/logo.png');
   });
 
+  it('URL https não traz aviso', () => {
+    setup({ src: 'https://x/logo.png' });
+
+    expect(screen.queryByText(/Só endereços https/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * O canvas nao carrega `http://`. O formulario diz isso e mostra a saida, em
+   * vez de deixar o usuario concluir que a URL esta errada.
+   */
+  it('URL http avisa que só https é aceito e aponta o upload', () => {
+    setup({ src: 'http://10.0.0.5/logo.png' });
+
+    expect(screen.getByText(/Só endereços https:\/\/ são aceitos/)).toHaveTextContent('envie por aqui');
+    // A miniatura tem `alt=""` (decorativa), entao nao tem papel `img` para o RTL.
+    expect(document.querySelector('img[src^="http:"]')).toBeNull();
+  });
+
+  it('URL https mostra a miniatura', () => {
+    setup({ src: 'https://x/logo.png' });
+
+    expect(document.querySelector('img[src="https://x/logo.png"]')).not.toBeNull();
+  });
+
+  it('arquivo que não é imagem é recusado e o `src` não muda', () => {
+    const { onChange } = setup({ src: 'https://x/logo.png' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+
+    fireEvent.change(input, {
+      target: { files: [new File(['%PDF'], 'manual.pdf', { type: 'application/pdf' })] },
+    });
+
+    expect(screen.getByText('O arquivo não é uma imagem.')).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   /** O data URI não volta para o campo: são dezenas de milhares de caracteres. */
   it('com arquivo enviado, o campo de URL fica vazio e explica', () => {
     setup({ src: 'data:image/png;base64,iVBORw0KGgo=' });

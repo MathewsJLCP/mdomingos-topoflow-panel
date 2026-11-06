@@ -1,4 +1,4 @@
-import { locationUtil } from '@grafana/data';
+import { locationUtil, textUtil } from '@grafana/data';
 import { getTemplateSrv, locationService } from '@grafana/runtime';
 
 import { Drilldown } from '../model/types';
@@ -25,6 +25,21 @@ import { Drilldown } from '../model/types';
  * A interpolacao acontece **aqui e nao no que fica salvo**: `$host` vale o que
  * vale no instante do clique, e resolve-lo na hora de gravar congelaria o host
  * que estava selecionado quando o painel foi configurado.
+ *
+ * A sanitizacao vem **por ultimo**, sobre o endereco ja interpolado: e ali que
+ * uma variavel `$link` valendo `javascript:...` vira de fato o `href`. Ver
+ * `isBlockedDrilldown`.
+ *
+ * A ordem das outras duas etapas tambem e de seguranca:
+ *
+ *   - **caracteres de controle saem antes do `withScheme`.** O browser ignora
+ *     tab e quebra de linha dentro de uma URL, entao `java<tab>script:` executa
+ *     como `javascript:`. Sem limpar antes, o `withScheme` nao reconheceria o
+ *     esquema e devolveria `https://java<tab>script:...` — inofensivo, mas um
+ *     link sem sentido em vez de link nenhum.
+ *   - **o `withScheme` vem antes do `sanitizeUrl`.** O `sanitizeUrl` le como
+ *     esquema tudo ate o ultimo `:`, e recusaria `datadog.corp:8443/painel` por
+ *     comecar com `data`. Com o `https://` ja no lugar, o esquema lido e `https`.
  */
 export function drilldownHref(drilldown: Drilldown | undefined): string | undefined {
   const raw = drilldown?.url.trim();
@@ -32,7 +47,34 @@ export function drilldownHref(drilldown: Drilldown | undefined): string | undefi
     return undefined;
   }
 
-  return withScheme(interpolate(raw));
+  const safe = textUtil.sanitizeUrl(withScheme(stripControlChars(interpolate(raw))));
+  return safe === BLOCKED_URL ? undefined : safe;
+}
+
+/** O que o browser descarta de uma URL antes de interpreta-la. */
+function stripControlChars(url: string): string {
+  return url.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+}
+
+/**
+ * O que o `sanitizeUrl` do Grafana devolve no lugar de um endereco perigoso
+ * (`javascript:`, `data:`, `vbscript:`, inclusive disfarcados com maiuscula,
+ * tab ou entidade HTML).
+ *
+ * Um `<a href="about:blank">` levaria o operador a uma pagina em branco no
+ * clique, sem dizer por que. Sem `href` o elemento volta a ser um `div`: o
+ * clique nao faz nada, e o editor explica o motivo (ver `isBlockedDrilldown`).
+ */
+const BLOCKED_URL = 'about:blank';
+
+/**
+ * Ha um link configurado, mas o endereco foi recusado pela sanitizacao.
+ *
+ * Existe para o editor distinguir "sem link" de "link bloqueado": sem isso, quem
+ * digitou `javascript:...` veria "Sem link." e concluiria que o campo nao salvou.
+ */
+export function isBlockedDrilldown(drilldown: Drilldown | undefined): boolean {
+  return hasDrilldown(drilldown) && drilldownHref(drilldown) === undefined;
 }
 
 /**

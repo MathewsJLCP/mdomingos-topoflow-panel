@@ -1,6 +1,6 @@
 {
   "name": "topo-flow",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
     "dev": "webpack -w -c ./.config/webpack/webpack.config.ts --env development",
@@ -13,7 +13,7 @@
     "server": "docker compose up --build",
     "sign": "sign-plugin"
   },
-  "author": "Jlcp",
+  "author": "Matheus Domingos",
   "license": "Apache-2.0",
   "devDependencies": {
     "@grafana/eslint-config": "^9.0.0",

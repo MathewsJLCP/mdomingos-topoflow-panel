@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { capImageSrc } from './imageSrc';
+
 /**
  * Fonte da verdade do modelo do TopoFlow.
  *
@@ -709,8 +711,11 @@ export const topoImageSchema = z.object({
    * o que muda e de onde o desenho vem, nao o que ele e. E o que faz a
    * biblioteca chegar a Imagem sem migrador e sem um segundo campo que
    * precisaria ser mantido em sincronia com este.
+   *
+   * O teto do upload vale aqui tambem, e nao so no editor. O `transform` zera o
+   * campo em vez de reprovar o valor. Ver `capImageSrc`.
    */
-  src: z.string().default(''),
+  src: z.string().default('').transform(capImageSrc),
   /**
    * Como a figura ocupa a caixa. `contain` preserva a proporcao e e o padrao:
    * um logo esticado e pior que um logo com sobra ao lado.

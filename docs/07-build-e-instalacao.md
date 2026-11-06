@@ -176,7 +176,7 @@ npm run sign        # @grafana/sign-plugin, gera dist/MANIFEST.txt
 
 Antes disso:
 
-- a **primeira parte do id** (`jlcp-`) tem que bater com o slug da conta
+- a **primeira parte do id** (`mdomingos-`) tem que bater com o slug da conta
   Grafana Cloud;
 - decida o nível de assinatura (*private*, *community*, *commercial*) —
   para uso interno, **private**, listando os domínios das instâncias;

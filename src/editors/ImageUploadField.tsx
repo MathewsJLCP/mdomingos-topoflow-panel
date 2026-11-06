@@ -3,6 +3,7 @@ import { css } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
 import { Button, Field, FileUpload, Input, useStyles2 } from '@grafana/ui';
 
+import { MAX_IMAGE_BYTES, imageSrcKind, isRenderableImageSrc } from '../model/imageSrc';
 import { FieldLabel } from './FieldLabel';
 
 /**
@@ -18,18 +19,33 @@ import { FieldLabel } from './FieldLabel';
  *     quem nunca olha para esta imagem.
  *   - **a URL continua existindo.** E a saida para imagem grande e para quem ja
  *     hospeda os icones — o mesmo campo aceita as duas coisas porque, para o
- *     `<img>`, data URI e URL sao a mesma coisa.
- */
-
-/**
- * Teto do arquivo escolhido, antes de virar base64.
+ *     `<img>`, data URI e URL sao a mesma coisa. So `https://`: ver
+ *     `model/imageSrc.ts`.
  *
- * 256 KB e generoso para icone e logo (um PNG de 128x128 costuma ter menos de
- * 20 KB) e ainda mantem o dashboard leve mesmo com uma duzia de imagens.
+ * O teto (`MAX_IMAGE_BYTES`) mora no modelo porque o schema tambem o aplica.
  */
-export const MAX_IMAGE_BYTES = 256 * 1024;
 
 const formatKB = (bytes: number) => `${Math.round(bytes / 1024)} KB`;
+
+/**
+ * Por que o valor atual nao aparece na Imagem. `undefined` quando aparece.
+ *
+ * Vale para o que ja estava salvo tambem: uma URL `http://` de antes da regra
+ * abre o formulario com este aviso, e nao com um campo que parece funcionar.
+ */
+function srcProblem(value: string): string | undefined {
+  switch (imageSrcKind(value)) {
+    case 'blocked':
+      return (
+        'Só endereços https:// são aceitos. Para uma imagem de servidor sem https, ' +
+        'baixe o arquivo e envie por aqui.'
+      );
+    case 'too-large':
+      return `A imagem passa do limite de ${formatKB(MAX_IMAGE_BYTES)}. Use uma imagem menor.`;
+    default:
+      return undefined;
+  }
+}
 
 interface ImageUploadFieldProps {
   value: string;
@@ -39,8 +55,17 @@ interface ImageUploadFieldProps {
 export function ImageUploadField({ value, onChange }: ImageUploadFieldProps) {
   const styles = useStyles2(getStyles);
   const [error, setError] = React.useState<string | undefined>();
+  // O erro da ultima acao manda; sem ele, o problema do valor atual.
+  const message = error ?? srcProblem(value);
 
   const readFile = (file: File) => {
+    // O `accept` do input e sugestao para o seletor de arquivos, nao trava:
+    // "Todos os arquivos" deixa escolher um PDF, que viraria `data:application/pdf`.
+    if (!file.type.startsWith('image/')) {
+      setError('O arquivo não é uma imagem.');
+      return;
+    }
+
     if (file.size > MAX_IMAGE_BYTES) {
       setError(
         `A imagem tem ${formatKB(file.size)} e o limite é ${formatKB(MAX_IMAGE_BYTES)}. ` +
@@ -61,13 +86,13 @@ export function ImageUploadField({ value, onChange }: ImageUploadFieldProps) {
   return (
     <Field
       label={
-        <FieldLabel info={`Envie um arquivo de até ${formatKB(MAX_IMAGE_BYTES)} ou cole a URL de uma imagem.`}>
+        <FieldLabel info={`Envie um arquivo de até ${formatKB(MAX_IMAGE_BYTES)} ou cole a URL https:// de uma imagem.`}>
           Imagem
         </FieldLabel>
       }
     >
       <div className={styles.wrapper}>
-        {value && (
+        {isRenderableImageSrc(value) && (
           // A miniatura e a confirmacao de que o arquivo certo entrou — sobretudo
           // no caminho da URL, onde nada garante que o endereco resolve.
           <img className={styles.preview} src={value} alt="" />
@@ -104,7 +129,7 @@ export function ImageUploadField({ value, onChange }: ImageUploadFieldProps) {
           }}
         />
 
-        {error && <div className={styles.error}>{error}</div>}
+        {message && <div className={styles.error}>{message}</div>}
       </div>
     </Field>
   );

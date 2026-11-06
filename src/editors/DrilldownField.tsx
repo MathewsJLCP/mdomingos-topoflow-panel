@@ -3,7 +3,7 @@ import { css } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
 import { Field, Input, useStyles2 } from '@grafana/ui';
 
-import { drilldownHref, isInternal } from '../canvas/drilldown';
+import { drilldownHref, isBlockedDrilldown, isInternal } from '../canvas/drilldown';
 import { Drilldown } from '../model/types';
 import { tfPalette } from '../theme/palette';
 import { FieldLabel } from './FieldLabel';
@@ -60,6 +60,8 @@ export function DrilldownField({ value, onChange }: DrilldownFieldProps) {
               {isInternal(alvo) ? 'Abre neste Grafana: ' : 'Sai do Grafana para: '}
               <span className={styles.target}>{alvo}</span>
             </>
+          ) : isBlockedDrilldown(value) ? (
+            'Endereço bloqueado por segurança: o elemento não vira link.'
           ) : (
             'Sem link.'
           )}
